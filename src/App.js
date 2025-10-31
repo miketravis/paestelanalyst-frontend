@@ -19,36 +19,47 @@ function App() {
     }
   };
 
-  const fetchItems = async () => {
+const fetchItems = async () => {
     try {
       const response = await fetch(`${API_URL}/items/`);
-      const data = await response.json();
-      setItems(data);
-    } catch (error) {
-      console.error("Error fetching items:", error);
-    }
-  };
 
-  useEffect(() => {
-    fetchMessage();
-    fetchItems();
-  }, []);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(`${API_URL}/items/?name=${newItem}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      if (response.ok) {
-        setNewItem("");
-        fetchItems(); // Refresh the list
+      if (response.ok) { // <-- THIS IS THE FIX
+        const data = await response.json();
+        setItems(data); // This is now safe
+      } else {
+        // If the server sends a 500 error, log it and set items to an empty array
+        console.error("Failed to fetch items:", await response.json());
+        setItems([]);
       }
     } catch (error) {
-      console.error("Error creating item:", error);
+      // This catches network errors (like if the backend is down)
+      console.error("Error fetching items:", error);
+      setItems([]);
     }
   };
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    // --- THIS IS THE FIX ---
+    // We now send the "newItem" in the 'body' as JSON,
+    // not in the URL.
+    const response = await fetch(`${API_URL}/items/`, { // <-- URL no longer has ?name=
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newItem })  // <-- Send data in the body
+    });
+    // --- END OF FIX ---
+
+    if (response.ok) {
+      setNewItem("");
+      fetchItems(); // Refresh the list
+    } else {
+      console.error("Failed to create item:", await response.json());
+    }
+  } catch (error) {
+    console.error("Error creating item:", error);
+  }
+};
 
   return (
     <div style={{ padding: '20px' }}>
